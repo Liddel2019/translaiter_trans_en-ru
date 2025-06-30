@@ -1,3 +1,4 @@
+# main.py
 import os
 import sys
 import logging
@@ -10,6 +11,7 @@ import platform
 import psutil
 import yaml
 from utils.config import ConfigManager
+from utils.logger import Logger
 
 # Lazy import to avoid circular dependencies
 TranslationGUI = None
@@ -36,6 +38,7 @@ class ApplicationManager:
             gui (TranslationGUI): GUI instance for the application.
             tensorboard_process (subprocess.Popen): TensorBoard process, if running.
             start_time (datetime): Application start time for runtime tracking.
+            logger_instance (Logger): Custom logger instance.
         """
         self.config_manager = None
         self.config = {}
@@ -43,6 +46,7 @@ class ApplicationManager:
         self.gui = None
         self.tensorboard_process = None
         self.start_time = datetime.now()
+        self.logger_instance = None
         logger.info("ApplicationManager initialized")
 
     def load_initial_config(self) -> Dict[str, Any]:
@@ -114,7 +118,7 @@ class ApplicationManager:
                 return False
 
             # Check project root existence
-            project_root = self.config_manager.get_config_value("general.project_root", self.config)
+            project_root = self.config_manager.get_config_value("general.project_root")
             if not os.path.exists(project_root):
                 logger.error(f"Project root directory does not exist: {project_root}")
                 return False
@@ -138,37 +142,10 @@ class ApplicationManager:
             >>> app_manager.setup_logging()
         """
         try:
-            # Fetch logger configuration with default fallback
-            log_config = self.config_manager.get_config_value("logger", self.config, default={})
-            if not log_config:
-                logger.warning("Logger configuration not found, using defaults")
-                log_config = {
-                    "log_file": "logs/translaiter.log",
-                    "log_level": "INFO",
-                    "max_log_size": 1048576
-                }
-
-            log_file = self.config_manager.get_absolute_path(log_config.get("log_file", "logs/translaiter.log"))
-            log_level = getattr(logging, log_config.get("log_level", "INFO").upper(), logging.INFO)
-            max_log_size = log_config.get("max_log_size", 1048576)
-
-            # Create log directory
-            os.makedirs(os.path.dirname(log_file), exist_ok=True)
-
-            # Configure file handler with rotation
-            file_handler = logging.handlers.RotatingFileHandler(
-                log_file,
-                maxBytes=max_log_size,
-                backupCount=5
-            )
-            file_handler.setFormatter(logging.Formatter(
-                "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-            ))
-
-            # Update logger configuration
-            logger.handlers = [file_handler, logging.StreamHandler(sys.stdout)]
-            logger.setLevel(log_level)
-            logger.info(f"Logging configured with level {log_config.get('log_level', 'INFO')} and file {log_file}")
+            self.logger_instance = Logger(self.config)
+            if not self.logger_instance.validate_logging_setup():
+                raise RuntimeError("Logging setup validation failed")
+            self.logger_instance.log_message("INFO", "Logging configured successfully via Logger class")
         except Exception as e:
             logger.error(f"Failed to configure logging: {str(e)}")
             raise RuntimeError(f"Logging configuration failed: {str(e)}")
@@ -188,25 +165,24 @@ class ApplicationManager:
         try:
             from gui import TranslationGUI
         except ImportError as e:
-            logger.error(f"Failed to import TranslationGUI: {str(e)}")
+            self.logger_instance.log_exception(e, "Failed to import TranslationGUI")
             raise RuntimeError(f"Cannot launch GUI due to import error: {str(e)}")
 
         try:
             from PyQt5.QtWidgets import QApplication
             self.app = QApplication(sys.argv)
-            gui_config = self.config_manager.get_config_value("gui", self.config, default={})
-            window_size = gui_config.get("window_size", [400, 300])
-            start_position = gui_config.get("start_position", [100, 100])
+            window_size = self.config_manager.get_config_value("gui.window_size", default=[400, 300])
+            start_position = self.config_manager.get_config_value("gui.start_position", default=[100, 100])
 
             self.gui = TranslationGUI(self.config)
             self.gui.resize(*window_size)
             self.gui.move(*start_position)
             self.gui.show()
 
-            logger.info("GUI application launched successfully")
+            self.logger_instance.log_message("INFO", "GUI application launched successfully")
             sys.exit(self.app.exec_())
         except Exception as e:
-            logger.error(f"Failed to launch GUI application: {str(e)}")
+            self.logger_instance.log_exception(e, "Failed to launch GUI application")
             raise RuntimeError(f"GUI application launch failed: {str(e)}")
 
     def cleanup(self) -> None:
@@ -221,16 +197,16 @@ class ApplicationManager:
             if self.tensorboard_process:
                 self.tensorboard_process.terminate()
                 self.tensorboard_process.wait(timeout=5)
-                logger.info("TensorBoard process terminated")
+                self.logger_instance.log_message("INFO", "TensorBoard process terminated")
 
             runtime = datetime.now() - self.start_time
-            logger.info(f"Application ran for {runtime.total_seconds()} seconds")
+            self.logger_instance.log_message("INFO", f"Application ran for {runtime.total_seconds()} seconds")
 
             if self.gui:
                 self.gui.close()
-                logger.info("GUI closed")
+                self.logger_instance.log_message("INFO", "GUI closed")
         except Exception as e:
-            logger.error(f"Cleanup failed: {str(e)}")
+            self.logger_instance.log_exception(e, "Cleanup failed")
 
     def check_updates(self) -> bool:
         """
@@ -245,16 +221,16 @@ class ApplicationManager:
         """
         try:
             project_version = "1.0.0"
-            logger.info(f"Current project version: {project_version}")
+            self.logger_instance.log_message("INFO", f"Current project version: {project_version}")
 
             if platform.system() not in ["Windows", "Linux", "Darwin"]:
-                logger.warning(f"Unsupported operating system: {platform.system()}")
+                self.logger_instance.log_message("WARNING", f"Unsupported operating system: {platform.system()}")
                 return False
 
-            logger.info("Version and compatibility check passed")
+            self.logger_instance.log_message("INFO", "Version and compatibility check passed")
             return True
         except Exception as e:
-            logger.error(f"Update check failed: {str(e)}")
+            self.logger_instance.log_exception(e, "Update check failed")
             return False
 
     def initialize_services(self) -> None:
@@ -270,7 +246,7 @@ class ApplicationManager:
         """
         try:
             tensorboard_path = self.config_manager.get_absolute_path(
-                self.config_manager.get_config_value("general.tensorboard_path", self.config, default="logs/tensorboard")
+                self.config_manager.get_config_value("general.tensorboard_path", default="logs/tensorboard")
             )
             os.makedirs(tensorboard_path, exist_ok=True)
 
@@ -280,13 +256,13 @@ class ApplicationManager:
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE
                 )
-                logger.info("TensorBoard started on port 6006")
+                self.logger_instance.log_message("INFO", "TensorBoard started on port 6006")
             except FileNotFoundError:
-                logger.warning("TensorBoard not installed or not found in PATH")
+                self.logger_instance.log_message("WARNING", "TensorBoard not installed or not found in PATH")
             except Exception as e:
-                logger.error(f"Failed to start TensorBoard: {str(e)}")
+                self.logger_instance.log_exception(e, "Failed to start TensorBoard")
         except Exception as e:
-            logger.error(f"Service initialization failed: {str(e)}")
+            self.logger_instance.log_exception(e, "Service initialization failed")
             raise RuntimeError(f"Service initialization failed: {str(e)}")
 
     def parse_arguments(self) -> argparse.Namespace:
@@ -330,10 +306,10 @@ class ApplicationManager:
             from gui import TranslationGUI
             from utils.config import ConfigManager
             from PyQt5.QtWidgets import QApplication
-            logger.info("All required imports validated successfully")
+            self.logger_instance.log_message("INFO", "All required imports validated successfully")
             return True
         except ImportError as e:
-            logger.error(f"Import validation failed: {str(e)}")
+            self.logger_instance.log_exception(e, "Import validation failed")
             return False
 
     def setup_environment(self) -> None:
@@ -348,12 +324,22 @@ class ApplicationManager:
             >>> app_manager.setup_environment()
         """
         try:
-            initialize_project_directories(self.config)
-            if not validate_config_paths(self.config):
+            self.logger_instance.log_message("INFO", "Starting environment setup")
+            initialize_project_directories(self.config, self.logger_instance)
+            if not validate_config_paths(self.config, self.logger_instance):
                 raise RuntimeError("Configuration path validation failed")
-            logger.info("Environment setup completed successfully")
+            self.logger_instance.log_message("INFO", "Environment setup completed successfully")
+        except KeyError as e:
+            self.logger_instance.log_exception(e, "Configuration key error during environment setup")
+            raise RuntimeError(f"Environment setup failed: Missing configuration key {str(e)}")
+        except TypeError as e:
+            self.logger_instance.log_exception(e, "Type error during environment setup")
+            raise RuntimeError(f"Environment setup failed: Invalid type {str(e)}")
+        except OSError as e:
+            self.logger_instance.log_exception(e, "OS error during environment setup")
+            raise RuntimeError(f"Environment setup failed: OS error {str(e)}")
         except Exception as e:
-            logger.error(f"Environment setup failed: {str(e)}")
+            self.logger_instance.log_exception(e, "Unexpected error during environment setup")
             raise RuntimeError(f"Environment setup failed: {str(e)}")
 
 def main() -> None:
@@ -372,18 +358,17 @@ def main() -> None:
             logger.debug("Debug mode enabled")
 
         app_manager.load_initial_config()
-
-        if not app_manager.validate_environment():
-            logger.error("Environment validation failed. Exiting.")
-            sys.exit(1)
-
         app_manager.setup_logging()
 
+        if not app_manager.validate_environment():
+            app_manager.logger_instance.log_message("ERROR", "Environment validation failed. Exiting.")
+            sys.exit(1)
+
         if not app_manager.check_updates():
-            logger.warning("Update check failed. Proceeding with caution.")
+            app_manager.logger_instance.log_message("WARNING", "Update check failed. Proceeding with caution.")
 
         if not app_manager.validate_imports():
-            logger.error("Required imports are missing. Exiting.")
+            app_manager.logger_instance.log_message("ERROR", "Required imports are missing. Exiting.")
             sys.exit(1)
 
         app_manager.setup_environment()
@@ -391,11 +376,11 @@ def main() -> None:
         app_manager.run_application()
 
     except KeyboardInterrupt:
-        logger.info("Application interrupted by user")
+        app_manager.logger_instance.log_message("INFO", "Application interrupted by user")
         app_manager.cleanup()
         sys.exit(0)
     except Exception as e:
-        logger.error(f"Application failed: {str(e)}")
+        app_manager.logger_instance.log_exception(e, "Application failed")
         app_manager.cleanup()
         sys.exit(1)
     finally:
@@ -425,76 +410,137 @@ def check_disk_space(path: str) -> bool:
         logger.error(f"Disk space check failed: {str(e)}")
         return False
 
-def initialize_project_directories(config: Dict[str, Any]) -> None:
+def initialize_project_directories(config: Dict[str, Any], logger_instance: Logger) -> None:
     """
     Create necessary project directories based on configuration.
 
     Args:
         config (Dict[str, Any]): Configuration dictionary.
+        logger_instance (Logger): Logger instance for logging.
 
     Raises:
-        RuntimeError: If directory creation fails.
+        RuntimeError: If directory creation fails or configuration is invalid.
 
     Example:
         >>> config = {"general": {"project_root": "./"}, ...}
-        >>> initialize_project_directories(config)
+        >>> initialize_project_directories(config, logger_instance)
     """
     try:
-        paths = [
-            config["general"]["tensorboard_path"],
-            config["dataset"]["dataset_path"],
-            config["dataset"]["cache_path"],
-            config["tokenizer"]["tokenizer_cache_path"],
-            config["model"]["checkpoint_path"],
-            config["logger"]["log_file"],
-            config["metrics"]["plot_path"],
-            config["unit"]["heatmap_path"],
-            config["unit"]["backup_path"]
+        logger_instance.log_message("INFO", "Starting project directory initialization")
+        assert isinstance(config, dict), "Configuration must be a dictionary"
+        assert isinstance(logger_instance, Logger), "Logger instance must be of type Logger"
+
+        # Define required configuration keys with defaults
+        path_configs = [
+            ("general.tensorboard_path", "logs/tensorboard"),
+            ("dataset.dataset_path", "data/datasets"),
+            ("dataset.cache_path", "data/cache"),
+            ("tokenizer.tokenizer_cache_path", "data/tokenizer_cache"),
+            ("model.checkpoint_path", "model/checkpoints"),
+            ("logger.log_file", "logs/translaiter.log"),
+            ("metrics.plot_path", "logs/plots"),
+            ("unit.heatmap_path", "logs/heatmaps"),
+            ("unit.backup_path", "logs/backups")
         ]
+
+        paths = []
+        for key, default in path_configs:
+            try:
+                section, subkey = key.split(".")
+                value = config.get(section, {}).get(subkey, default)
+                logger_instance.log_message("DEBUG", f"Validated config key {key}: {value}")
+                if not isinstance(value, str):
+                    logger_instance.log_message("WARNING", f"Invalid type for {key}: expected str, got {type(value)}, using default {default}")
+                    value = default
+                paths.append(value)
+            except KeyError as e:
+                logger_instance.log_message("WARNING", f"Missing config key {key}, using default {default}")
+                paths.append(default)
+
+        project_root = config.get("general", {}).get("project_root", "./")
+        logger_instance.log_message("DEBUG", f"Using project root: {project_root}")
+
         for path in paths:
-            full_path = os.path.join(config["general"]["project_root"], path)
-            os.makedirs(full_path, exist_ok=True)
-            logger.debug(f"Created directory: {full_path}")
-        logger.info("Project directories initialized")
+            try:
+                full_path = os.path.join(project_root, path)
+                os.makedirs(full_path, exist_ok=True)
+                logger_instance.log_message("DEBUG", f"Created directory: {full_path}")
+            except OSError as e:
+                logger_instance.log_message("ERROR", f"Failed to create directory {full_path}: {str(e)}")
+                raise RuntimeError(f"Directory creation failed for {full_path}: {str(e)}")
+
+        logger_instance.log_message("INFO", "Project directories initialized successfully")
+    except AssertionError as e:
+        logger_instance.log_message("ERROR", f"Invalid input: {str(e)}")
+        raise RuntimeError(f"Directory initialization failed: {str(e)}")
+    except KeyError as e:
+        logger_instance.log_message("ERROR", f"Missing configuration key: {str(e)}")
+        raise RuntimeError(f"Directory initialization failed: Missing configuration key {str(e)}")
+    except TypeError as e:
+        logger_instance.log_message("ERROR", f"Type error in configuration: {str(e)}")
+        raise RuntimeError(f"Directory initialization failed: Invalid type {str(e)}")
+    except OSError as e:
+        logger_instance.log_message("ERROR", f"OS error during directory creation: {str(e)}")
+        raise RuntimeError(f"Directory initialization failed: OS error {str(e)}")
     except Exception as e:
-        logger.error(f"Failed to initialize project directories: {str(e)}")
+        logger_instance.log_message("ERROR", f"Unexpected error during directory initialization: {str(e)}")
         raise RuntimeError(f"Directory initialization failed: {str(e)}")
 
-def validate_config_paths(config: Dict[str, Any]) -> bool:
+def validate_config_paths(config: Dict[str, Any], logger_instance: Logger) -> bool:
     """
     Validate that all configured paths are accessible.
 
     Args:
         config (Dict[str, Any]): Configuration dictionary.
+        logger_instance (Logger): Logger instance for logging.
 
     Returns:
         bool: True if all paths are valid, False otherwise.
 
     Example:
         >>> config = {"general": {"project_root": "./"}, ...}
-        >>> validate_config_paths(config)
+        >>> validate_config_paths(config, logger_instance)
     """
     try:
-        paths = [
-            config["general"]["tensorboard_path"],
-            config["dataset"]["dataset_path"],
-            config["dataset"]["cache_path"],
-            config["tokenizer"]["tokenizer_cache_path"],
-            config["model"]["checkpoint_path"],
-            os.path.dirname(config["logger"]["log_file"]),
-            config["metrics"]["plot_path"],
-            config["unit"]["heatmap_path"],
-            config["unit"]["backup_path"]
+        logger_instance.log_message("INFO", "Starting configuration path validation")
+        path_configs = [
+            ("general.tensorboard_path", "logs/tensorboard"),
+            ("dataset.dataset_path", "data/datasets"),
+            ("dataset.cache_path", "data/cache"),
+            ("tokenizer.tokenizer_cache_path", "data/tokenizer_cache"),
+            ("model.checkpoint_path", "model/checkpoints"),
+            ("logger.log_file", "logs/translaiter.log"),
+            ("metrics.plot_path", "logs/plots"),
+            ("unit.heatmap_path", "logs/heatmaps"),
+            ("unit.backup_path", "logs/backups")
         ]
-        for path in paths:
-            full_path = os.path.join(config["general"]["project_root"], path)
-            if not os.access(os.path.dirname(full_path) or ".", os.W_OK):
-                logger.error(f"Path not writable: {full_path}")
-                return False
-        logger.info("All configured paths validated successfully")
+
+        project_root = config.get("general", {}).get("project_root", "./")
+        logger_instance.log_message("DEBUG", f"Using project root: {project_root}")
+
+        for key, default in path_configs:
+            try:
+                section, subkey = key.split(".")
+                path = config.get(section, {}).get(subkey, default)
+                logger_instance.log_message("DEBUG", f"Validated config key {key}: {path}")
+                if not isinstance(path, str):
+                    logger_instance.log_message("WARNING", f"Invalid type for {key}: expected str, got {type(path)}, using default {default}")
+                    path = default
+                full_path = os.path.join(project_root, path)
+                if not os.access(os.path.dirname(full_path) or ".", os.W_OK):
+                    logger_instance.log_message("ERROR", f"Path not writable: {full_path}")
+                    return False
+            except KeyError as e:
+                logger_instance.log_message("WARNING", f"Missing config key {key}, using default {default}")
+                full_path = os.path.join(project_root, default)
+                if not os.access(os.path.dirname(full_path) or ".", os.W_OK):
+                    logger_instance.log_message("ERROR", f"Path not writable: {full_path}")
+                    return False
+
+        logger_instance.log_message("INFO", "All configured paths validated successfully")
         return True
     except Exception as e:
-        logger.error(f"Path validation failed: {str(e)}")
+        logger_instance.log_message("ERROR", f"Path validation failed: {str(e)}")
         return False
 
 def log_system_info() -> None:
