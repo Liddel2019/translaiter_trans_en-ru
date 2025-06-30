@@ -1,0 +1,90 @@
+# Configuration file for the translaiter_trans_en-ru project
+# This file defines settings for all components: data, model, training, utilities, and GUI
+
+# General project settings
+general:
+  project_root: "./"  # Root directory of the project
+  log_level: "INFO"   # Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+  tensorboard_path: "logs/tensorboard"  # Path for TensorBoard logs, relative to project_root
+
+# Dataset configuration for data loading and preprocessing
+dataset:
+  dataset_path: "data/datasets"  # Default path for datasets, relative to project_root
+  available_datasets:  # List of supported datasets
+    - "OPUS Tatoeba"
+    - "TED2020"
+    - "WMT'19 en-ru"
+    - "Common Crawl"
+  max_length: 10  # Maximum sentence length in words
+  batch_size: 32  # Batch size for data loading
+  cache_path: "data/cache"  # Cache path for preprocessed data, relative to project_root
+  clean_rules:  # Characters to remove during preprocessing
+    - "<"
+    - ">"
+    - "&"
+    - "\n"
+
+# Tokenizer settings for text tokenization
+tokenizer:
+  tokenizer_name: "Helsinki-NLP/opus-mt-en-ru"  # Pre-trained tokenizer name
+  tokenizer_cache_path: "data/tokenizer_cache"  # Cache path for tokenizer, relative to project_root
+  max_length: 10  # Maximum token sequence length
+  vocab_size: 32000  # Vocabulary size for the tokenizer
+
+# Model configuration for the transformer architecture
+model:
+  num_layers: 6  # Number of transformer layers
+  num_heads: 8   # Number of attention heads
+  hidden_size: 512  # Size of hidden layers
+  dropout_rate: 0.1  # Dropout rate for regularization
+  checkpoint_path: "model/checkpoints"  # Path for model checkpoints, relative to project_root
+
+# Training configuration for model training
+training:
+  learning_rate: 0.0001  # Initial learning rate
+  epochs: 10  # Number of training epochs
+  log_steps: 100  # Log training metrics every N steps
+  beam_size: 5  # Beam size for beam search decoding
+  sample_size: 10  # Number of samples for evaluation
+  optimizer_type: "AdamW"  # Optimizer type (e.g., Adam, AdamW)
+  gradient_accumulation_steps: 1  # Number of steps for gradient accumulation
+
+# Learning rate scheduler configuration
+scheduler:
+  step_size: 10  # Number of epochs before reducing learning rate
+  gamma: 0.1  # Multiplicative factor for learning rate decay
+  min_lr: 0.00001  # Minimum learning rate
+
+# Logger configuration for logging utilities
+logger:
+  log_file: "logs/translaiter.log"  # Log file path, relative to project_root
+  max_log_size: 1048576  # Maximum log file size in bytes (1MB)
+  colors:  # Colors for different log levels
+    DEBUG: "green"
+    INFO: "blue"
+    WARNING: "yellow"
+    ERROR: "red"
+    CRITICAL: "red"
+  detail_levels:  # Logging detail levels
+    - "full"
+    - "minimal"
+
+# Metrics configuration for evaluation
+metrics:
+  bleu_weights: [0.25, 0.25, 0.25, 0.25]  # Weights for BLEU score calculation
+  loss_type: "cross_entropy"  # Loss function type
+  thresholds:  # Thresholds for metrics
+    bleu: 0.3
+  plot_path: "logs/plots"  # Path for saving metric plots, relative to project_root
+
+# Unit settings for visualization utilities
+unit:
+  heatmap_size: [10, 10]  # Size of heatmap visualizations
+  heatmap_path: "logs/heatmaps"  # Path for saving heatmaps, relative to project_root
+  backup_path: "logs/backups"  # Path for backups, relative to project_root
+  target_size: [5, 5]  # Target size for visualizations
+
+# GUI configuration for the PyQt5 interface
+gui:
+  window_size: [400, 300]  # Window size for GUI (width, height)
+  start_position: [100, 100]  # Starting position of GUI window (x, y)
