@@ -10,6 +10,7 @@ import re
 from utils.config import ConfigManager
 from collections import defaultdict
 from datetime import datetime
+from data.tokenizer import TranslationTokenizer  # Import the tokenizer
 
 logging.basicConfig(
     level=logging.INFO,
@@ -36,6 +37,7 @@ class TranslationDataset:
         self.processed_data = []
         self.batches = []
         self.is_cached = False
+        self.tokenizer = TranslationTokenizer(config)  # Initialize tokenizer
 
         available_datasets = self.config_manager.get_config_value("dataset.available_datasets", self.config, default=[])
         if not available_datasets:
@@ -108,9 +110,14 @@ class TranslationDataset:
                 batch_data = self.processed_data[i:i + self.batch_size]
                 en_batch = [item['en'] for item in batch_data]
                 ru_batch = [item['ru'] for item in batch_data]
+
+                # Tokenize batches using tokenize_batch
+                en_encoding = self.tokenizer.tokenize_batch(en_batch)
+                ru_encoding = self.tokenizer.tokenize_batch(ru_batch)
+
                 batch = {
-                    'en': torch.tensor([len(text.split()) for text in en_batch], dtype=torch.long),
-                    'ru': torch.tensor([len(text.split()) for text in ru_batch], dtype=torch.long),
+                    'en': en_encoding["input_ids"],  # Shape: [batch_size, max_length]
+                    'ru': ru_encoding["input_ids"],  # Shape: [batch_size, max_length]
                     'raw_en': en_batch,
                     'raw_ru': ru_batch
                 }

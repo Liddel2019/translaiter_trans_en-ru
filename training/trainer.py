@@ -3,7 +3,6 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.distributed as dist
-from torch.cuda.amp import GradScaler, autocast
 from typing import Dict, Any, Optional, Callable, List
 from datetime import datetime
 from pathlib import Path
@@ -27,7 +26,6 @@ class Trainer:
         self.is_distributed = False
         self.rank = 0
         self.world_size = 1
-        self.scaler = torch.amp.GradScaler('cuda') if torch.cuda.is_available() else None
         self.optimizer = None
         self.scheduler = None
         self.current_epoch = 0
@@ -244,25 +242,18 @@ class Trainer:
 
                 for batch_idx, batch in enumerate(self.dataset.batches):
                     self.optimizer.zero_grad(set_to_none=True)
-                    with autocast(device_type='cuda' if torch.cuda.is_available() else 'cpu'):
-                        src_ids = batch['en'].to(self.device)
-                        tgt_ids = batch['ru'].to(self.device)
-                        output = self.model(src_ids, tgt_ids[:, :-1])
-                        loss = nn.CrossEntropyLoss()(output.view(-1, output.size(-1)), tgt_ids[:, 1:].view(-1))
-                        loss = loss / self.gradient_accumulation_steps
+                    src_ids = batch['en'].to(self.device)
+                    tgt_ids = batch['ru'].to(self.device)
+                    self.logger.log_message("INFO", f"src_ids shape: {src_ids.shape}, tgt_ids shape: {tgt_ids.shape}")
+                    output = self.model(src_ids, tgt_ids[:, :-1])
+                    loss = nn.CrossEntropyLoss()(output.view(-1, output.size(-1)), tgt_ids[:, 1:].view(-1))
+                    loss = loss / self.gradient_accumulation_steps
 
-                    if self.scaler:
-                        self.scaler.scale(loss).backward()
-                    else:
-                        loss.backward()
+                    loss.backward()
 
                     accumulated_steps += 1
                     if accumulated_steps >= self.gradient_accumulation_steps:
-                        if self.scaler:
-                            self.scaler.step(self.optimizer)
-                            self.scaler.update()
-                        else:
-                            self.optimizer.step()
+                        self.optimizer.step()
                         accumulated_steps = 0
 
                     total_loss += loss.item() * self.gradient_accumulation_steps
@@ -309,9 +300,8 @@ class Trainer:
                 for batch in self.dataset.batches:
                     src_ids = batch['en'].to(self.device)
                     tgt_ids = batch['ru'].to(self.device)
-                    with autocast(device_type='cuda' if torch.cuda.is_available() else 'cpu'):
-                        output = self.model(src_ids, tgt_ids[:, :-1])
-                        loss = nn.CrossEntropyLoss()(output.view(-1, output.size(-1)), tgt_ids[:, 1:].view(-1))
+                    output = self.model(src_ids, tgt_ids[:, :-1])
+                    loss = nn.CrossEntropyLoss()(output.view(-1, output.size(-1)), tgt_ids[:, 1:].view(-1))
                     total_loss += loss.item()
                     steps += 1
 
@@ -362,7 +352,6 @@ class Trainer:
                     'model_state_dict': self.model.state_dict(),
                     'optimizer_state_dict': self.optimizer.state_dict(),
                     'scheduler_state_dict': self.scheduler.get_scheduler_state() if self.scheduler else None,
-                    'scaler_state_dict': self.scaler.state_dict() if self.scaler else None
                 }
                 torch.save(checkpoint, checkpoint_file)
         except Exception as e:
@@ -377,8 +366,6 @@ class Trainer:
             self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
             if checkpoint['scheduler_state_dict'] and self.scheduler:
                 self.scheduler.load_state(checkpoint_path)
-            if checkpoint['scaler_state_dict'] and self.scaler:
-                self.scaler.load_state_dict(checkpoint['scaler_state_dict'])
             self.current_epoch = checkpoint['epoch']
         except Exception as e:
             self.logger.log_exception(e, "Failed to load checkpoint")

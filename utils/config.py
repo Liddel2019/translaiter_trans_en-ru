@@ -348,6 +348,17 @@ class ConfigManager:
             if default is not None:
                 logger.debug(f"Returning default value for {key}: {default}")
                 return default
+            # Provide fallback defaults for specific keys
+            fallback_defaults = {
+                "scheduler.type": "ReduceLROnPlateau",
+                "scheduler.patience": 5,
+                "scheduler.t_max": 100,
+                "dataset.train_ratio": 0.8,
+                "dataset.val_ratio": 0.1
+            }
+            if key in fallback_defaults:
+                logger.debug(f"Using fallback default for {key}: {fallback_defaults[key]}")
+                return fallback_defaults[key]
             logger.error(f"No default value provided for {key}")
             raise ValueError(f"Configuration key {key} not found and no default provided")
 

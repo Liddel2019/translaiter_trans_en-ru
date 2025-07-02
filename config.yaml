@@ -5,25 +5,27 @@
 # General project settings
 general:
   project_root: "./"  # Root directory of the project
-  log_level: "INFO"   # Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+  log_level: "WARNING"   # Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
   tensorboard_path: "logs/tensorboard"  # Path for TensorBoard logs, relative to project_root
 
 # Dataset configuration for data loading and preprocessing
 dataset:
-  dataset_path: "data/datasets"  # Default path for datasets, relative to project_root
-  available_datasets:  # List of supported datasets
+  dataset_path: "data/datasets"
+  available_datasets:
     - "OPUS Tatoeba"
     - "TED2020"
     - "WMT'19 en-ru"
     - "Common Crawl"
-  max_length: 10  # Maximum sentence length in words
-  batch_size: 32  # Batch size for data loading
-  cache_path: "data/cache"  # Cache path for preprocessed data, relative to project_root
-  clean_rules:  # Characters to remove during preprocessing
+  max_length: 10
+  batch_size: 32
+  cache_path: "data/cache"
+  clean_rules:
     - "<"
     - ">"
     - "&"
     - "\n"
+  train_ratio: 0.8  # Added
+  val_ratio: 0.1   # Added
 
 # Tokenizer settings for text tokenization
 tokenizer:
@@ -55,9 +57,12 @@ training:
 
 # Learning rate scheduler configuration
 scheduler:
-  step_size: 10  # Number of epochs before reducing learning rate
-  gamma: 0.1  # Multiplicative factor for learning rate decay
-  min_lr: 0.00001  # Minimum learning rate
+  type: "ReduceLROnPlateau"  # or "CosineAnnealingLR" depending on scheduler.py
+  step_size: 10
+  gamma: 0.1
+  min_lr: 0.00001
+  patience: 5  # Example value for ReduceLROnPlateau
+  t_max: 100   # Example value for CosineAnnealingLR
 
 # Logger configuration for logging utilities
 logger:

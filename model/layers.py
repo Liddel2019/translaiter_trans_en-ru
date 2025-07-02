@@ -92,15 +92,14 @@ class MultiHeadAttentionLayer(Layer):
     def scale_dot_product_attention(self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor,
                                     mask: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor]:
         try:
-            with torch.amp.autocast(device_type='cuda' if torch.cuda.is_available() else 'cpu'):
-                attn_output = F.scaled_dot_product_attention(
-                    query=q,
-                    key=k,
-                    value=v,
-                    attn_mask=mask,
-                    dropout_p=self.dropout_rate if self.training else 0.0
-                )
-                return attn_output, None
+            attn_output = F.scaled_dot_product_attention(
+                query=q,
+                key=k,
+                value=v,
+                attn_mask=mask,
+                dropout_p=self.dropout_rate if self.training else 0.0
+            )
+            return attn_output, None
         except Exception as e:
             logger.error(f"Scaled dot-product attention failed: {str(e)}")
             raise ValueError(f"Scaled dot-product attention failed: {str(e)}")
@@ -172,13 +171,12 @@ class FeedForwardLayer(Layer):
         try:
             if not self.validate_input_shape(x):
                 raise ValueError("Invalid input shape")
-            with torch.amp.autocast(device_type='cuda' if torch.cuda.is_available() else 'cpu'):
-                x = self.linear1(x)
-                x = self.gelu_activation(x)
-                x = self.dropout(x)
-                x = self.linear2(x)
-                x = self.dropout(x)
-                return x
+            x = self.linear1(x)
+            x = self.gelu_activation(x)
+            x = self.dropout(x)
+            x = self.linear2(x)
+            x = self.dropout(x)
+            return x
         except Exception as e:
             logger.error(f"FeedForwardLayer forward failed: {str(e)}")
             raise ValueError(f"FeedForwardLayer forward failed: {str(e)}")
@@ -210,12 +208,11 @@ class EncoderLayer(Layer):
         try:
             if not self.validate_input_shape(x):
                 raise ValueError("Invalid input shape")
-            with torch.amp.autocast(device_type='cuda' if torch.cuda.is_available() else 'cpu'):
-                attn_output, _ = self.self_attention(x, x, x, mask)
-                x = self.norm1(x + self.dropout(attn_output))
-                ff_output = self.feed_forward(x)
-                x = self.norm2(x + self.dropout(ff_output))
-                return x
+            attn_output, _ = self.self_attention(x, x, x, mask)
+            x = self.norm1(x + self.dropout(attn_output))
+            ff_output = self.feed_forward(x)
+            x = self.norm2(x + self.dropout(ff_output))
+            return x
         except Exception as e:
             logger.error(f"EncoderLayer forward failed: {str(e)}")
             raise ValueError(f"EncoderLayer forward failed: {str(e)}")
@@ -252,14 +249,13 @@ class DecoderLayer(Layer):
                 raise ValueError("Invalid target input shape")
             if not self.validate_input_shape(memory):
                 raise ValueError("Invalid memory input shape")
-            with torch.amp.autocast(device_type='cuda' if torch.cuda.is_available() else 'cpu'):
-                attn_output, _ = self.self_attention(x, x, x, tgt_mask)
-                x = self.norm1(x + self.dropout(attn_output))
-                attn_output, _ = self.cross_attention(x, memory, memory, memory_mask)
-                x = self.norm2(x + self.dropout(attn_output))
-                ff_output = self.feed_forward(x)
-                x = self.norm3(x + self.dropout(ff_output))
-                return x
+            attn_output, _ = self.self_attention(x, x, x, tgt_mask)
+            x = self.norm1(x + self.dropout(attn_output))
+            attn_output, _ = self.cross_attention(x, memory, memory, memory_mask)
+            x = self.norm2(x + self.dropout(attn_output))
+            ff_output = self.feed_forward(x)
+            x = self.norm3(x + self.dropout(ff_output))
+            return x
         except Exception as e:
             logger.error(f"DecoderLayer forward failed: {str(e)}")
             raise ValueError(f"DecoderLayer forward failed: {str(e)}")

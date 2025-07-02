@@ -196,26 +196,25 @@ class TransformerModel(nn.Module):
             if tgt_mask is not None:
                 tgt_mask = tgt_mask.to(self.device)
 
-            with torch.amp.autocast(device_type='cuda' if torch.cuda.is_available() else 'cpu'):
-                src_emb = self.src_embedding(src_ids) + self.positional_encoding[:, :src_ids.size(1), :]
-                tgt_emb = self.tgt_embedding(tgt_ids) + self.positional_encoding[:, :tgt_ids.size(1), :]
-                if not self.validate_embedding_output(src_emb):
-                    raise ValueError("Invalid source embedding output shape")
-                if not self.validate_embedding_output(tgt_emb):
-                    raise ValueError("Invalid target embedding output shape")
-                src_emb = self.dropout(src_emb)
-                tgt_emb = self.dropout(tgt_emb)
+            src_emb = self.src_embedding(src_ids) + self.positional_encoding[:, :src_ids.size(1), :]
+            tgt_emb = self.tgt_embedding(tgt_ids) + self.positional_encoding[:, :tgt_ids.size(1), :]
+            if not self.validate_embedding_output(src_emb):
+                raise ValueError("Invalid source embedding output shape")
+            if not self.validate_embedding_output(tgt_emb):
+                raise ValueError("Invalid target embedding output shape")
+            src_emb = self.dropout(src_emb)
+            tgt_emb = self.dropout(tgt_emb)
 
-                memory = src_emb
-                for layer in self.encoder:
-                    memory = layer(memory, mask=src_mask)
+            memory = src_emb
+            for layer in self.encoder:
+                memory = layer(memory, mask=src_mask)
 
-                output = tgt_emb
-                for layer in self.decoder:
-                    output = layer(output, memory, tgt_mask=tgt_mask, memory_mask=src_mask)
+            output = tgt_emb
+            for layer in self.decoder:
+                output = layer(output, memory, tgt_mask=tgt_mask, memory_mask=src_mask)
 
-                logits = self.output_layer(output)
-                return logits
+            logits = self.output_layer(output)
+            return logits
         except Exception as e:
             self.logger.log_exception(e, "Forward pass failed")
             raise ValueError(f"Forward pass failed: {str(e)}")
@@ -237,35 +236,34 @@ class TransformerModel(nn.Module):
             generated = torch.full((batch_size, 1), self.tgt_vocab_size - 1, dtype=torch.long,
                                    device=self.device)
 
-            with torch.amp.autocast(device_type='cuda' if torch.cuda.is_available() else 'cpu'):
-                src_emb = self.src_embedding(src_ids) + self.positional_encoding[:, :src_ids.size(1), :]
-                src_emb = self.dropout(src_emb)
-                memory = src_emb
-                for layer in self.encoder:
-                    memory = layer(memory)
+            src_emb = self.src_embedding(src_ids) + self.positional_encoding[:, :src_ids.size(1), :]
+            src_emb = self.dropout(src_emb)
+            memory = src_emb
+            for layer in self.encoder:
+                memory = layer(memory)
 
-                beams = [(generated, 0.0)]
-                for _ in range(max_length - 1):
-                    new_beams = []
-                    for seq, score in beams:
-                        if seq[:, -1].item() == self.tgt_vocab_size - 1:
-                            new_beams.append((seq, score))
-                            continue
-                        tgt_emb = self.tgt_embedding(seq) + self.positional_encoding[:, :seq.size(1), :]
-                        tgt_emb = self.dropout(tgt_emb)
-                        output = tgt_emb
-                        for layer in self.decoder:
-                            output = layer(output, memory)
-                        logits = self.output_layer(output[:, -1, :])
-                        probs = F.softmax(logits, dim=-1)
-                        top_probs, top_indices = probs.topk(beam_size, dim=-1)
-                        for i in range(beam_size):
-                            new_seq = torch.cat([seq, top_indices[:, i:i + 1]], dim=-1)
-                            new_score = score + torch.log(top_probs[:, i]).item()
-                            new_beams.append((new_seq, new_score))
-                    beams = sorted(new_beams, key=lambda x: x[1], reverse=True)[:beam_size]
+            beams = [(generated, 0.0)]
+            for _ in range(max_length - 1):
+                new_beams = []
+                for seq, score in beams:
+                    if seq[:, -1].item() == self.tgt_vocab_size - 1:
+                        new_beams.append((seq, score))
+                        continue
+                    tgt_emb = self.tgt_embedding(seq) + self.positional_encoding[:, :seq.size(1), :]
+                    tgt_emb = self.dropout(tgt_emb)
+                    output = tgt_emb
+                    for layer in self.decoder:
+                        output = layer(output, memory)
+                    logits = self.output_layer(output[:, -1, :])
+                    probs = F.softmax(logits, dim=-1)
+                    top_probs, top_indices = probs.topk(beam_size, dim=-1)
+                    for i in range(beam_size):
+                        new_seq = torch.cat([seq, top_indices[:, i:i + 1]], dim=-1)
+                        new_score = score + torch.log(top_probs[:, i]).item()
+                        new_beams.append((new_seq, new_score))
+                beams = sorted(new_beams, key=lambda x: x[1], reverse=True)[:beam_size]
 
-                return beams[0][0]
+            return beams[0][0]
         except Exception as e:
             self.logger.log_exception(e, "Generation failed")
             raise ValueError(f"Generation failed: {str(e)}")

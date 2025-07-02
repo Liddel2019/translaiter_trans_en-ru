@@ -283,7 +283,7 @@ class TranslationGUI(QMainWindow):
 
             self.progress_bar.setValue(0)
             self.progress_timer.start(1000)
-            self.trainer.start_training(callback=self.on_training_update)
+            self.trainer.start_training(progress_callback=self.on_training_update)
         except Exception as e:
             self.logger.log_exception(e, "Training initiation failed")
             raise RuntimeError(f"Training initiation failed: {str(e)}")
