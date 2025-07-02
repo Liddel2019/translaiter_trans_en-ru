@@ -1,4 +1,3 @@
-# utils/config.py
 import os
 import yaml
 import logging
@@ -6,7 +5,6 @@ from typing import Dict, List, Any, Optional
 from pathlib import Path
 from copy import deepcopy
 
-# Configure logging for the config module
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -14,9 +12,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 class ConfigManager:
-    """Manages configuration for the translaiter_trans_en-ru project."""
-
-    # Default configuration template
     DEFAULT_CONFIG = {
         "general": {
             "project_root": "./",
@@ -89,16 +84,6 @@ class ConfigManager:
     }
 
     def __init__(self, config_path: str = "config.yaml"):
-        """
-        Initialize ConfigManager with a configuration file path, ensuring config.yaml is loaded from project root.
-
-        Args:
-            config_path (str): Path to the configuration file, default is 'config.yaml' in project root.
-
-        Raises:
-            FileNotFoundError: If config file is missing.
-            yaml.YAMLError: If YAML syntax is invalid.
-        """
         self.config_path = config_path
         self.config = {}
         try:
@@ -108,13 +93,8 @@ class ConfigManager:
             logger.error(f"Failed to initialize ConfigManager: {str(e)}")
             raise
 
-    def _load_config_with_fallback(self) -> None:
-        """
-        Helper method to load config.yaml with fallback to default configuration if loading fails.
-        Ensures robust initialization with appropriate error handling.
-        """
+    def _load_config_with_fallback(self):
         try:
-            # Attempt to load config.yaml from the project root
             config_path = os.path.join(self.DEFAULT_CONFIG["general"]["project_root"], self.config_path)
             self.config = self.load_config(config_path)
             logger.info("Configuration initialized successfully")
@@ -123,22 +103,8 @@ class ConfigManager:
             logger.warning("Using default configuration due to initialization failure")
             self.config = deepcopy(self.DEFAULT_CONFIG)
 
-    def load_config(self, config_path: str) -> Dict[str, Any]:
-        """
-        Load configuration from a YAML file.
-
-        Args:
-            config_path (str): Path to the configuration file.
-
-        Returns:
-            Dict[str, Any]: Loaded configuration dictionary.
-
-        Raises:
-            FileNotFoundError: If the config file does not exist.
-            yaml.YAMLError: If the YAML syntax is invalid.
-        """
+    def load_config(self, config_path: str):
         try:
-            # Ensure the path is absolute
             config_path = os.path.abspath(config_path)
             with open(config_path, 'r') as file:
                 self.config = yaml.safe_load(file) or {}
@@ -156,24 +122,13 @@ class ConfigManager:
             logger.error(f"Invalid YAML syntax in {config_path}: {str(e)}")
             raise
 
-    def validate_config(self, config: Dict[str, Any]) -> bool:
-        """
-        Validate configuration keys and types.
-
-        Args:
-            config (Dict[str, Any]): Configuration dictionary to validate.
-
-        Returns:
-            bool: True if valid, False otherwise.
-        """
+    def validate_config(self, config):
         try:
-            # Check if all required sections exist
             required_sections = set(self.DEFAULT_CONFIG.keys())
             if not all(section in config for section in required_sections):
                 logger.error("Missing required configuration sections")
                 return False
 
-            # Validate general settings
             if not isinstance(config["general"]["project_root"], str):
                 logger.error("Invalid type for project_root")
                 return False
@@ -181,7 +136,6 @@ class ConfigManager:
                 logger.error("Invalid log_level value")
                 return False
 
-            # Validate dataset settings
             if not isinstance(config["dataset"]["available_datasets"], list):
                 logger.error("available_datasets must be a list")
                 return False
@@ -192,12 +146,10 @@ class ConfigManager:
                 logger.error("batch_size must be a positive integer")
                 return False
 
-            # Validate tokenizer settings
             if not isinstance(config["tokenizer"]["vocab_size"], int) or config["tokenizer"]["vocab_size"] <= 0:
                 logger.error("vocab_size must be a positive integer")
                 return False
 
-            # Validate model settings
             if not isinstance(config["model"]["num_layers"], int) or config["model"]["num_layers"] <= 0:
                 logger.error("num_layers must be a positive integer")
                 return False
@@ -211,7 +163,6 @@ class ConfigManager:
                 logger.error("dropout_rate must be a float between 0 and 1")
                 return False
 
-            # Validate training settings
             if not isinstance(config["training"]["learning_rate"], float) or config["training"]["learning_rate"] <= 0:
                 logger.error("learning_rate must be a positive float")
                 return False
@@ -219,12 +170,10 @@ class ConfigManager:
                 logger.error("epochs must be a positive integer")
                 return False
 
-            # Validate scheduler settings
             if not isinstance(config["scheduler"]["gamma"], float) or not 0 < config["scheduler"]["gamma"] <= 1:
                 logger.error("gamma must be a float between 0 and 1")
                 return False
 
-            # Validate logger settings
             if not isinstance(config["logger"]["max_log_size"], int) or config["logger"]["max_log_size"] <= 0:
                 logger.error("max_log_size must be a positive integer")
                 return False
@@ -235,7 +184,6 @@ class ConfigManager:
                 logger.error("detail_levels must be a non-empty list")
                 return False
 
-            # Validate metrics settings
             if not isinstance(config["metrics"]["bleu_weights"], list) or len(config["metrics"]["bleu_weights"]) != 4:
                 logger.error("bleu_weights must be a list of 4 values")
                 return False
@@ -246,7 +194,6 @@ class ConfigManager:
                 logger.error("bleu_weights must sum to 1.0")
                 return False
 
-            # Validate unit settings
             if not isinstance(config["unit"]["heatmap_size"], list) or len(config["unit"]["heatmap_size"]) != 2:
                 logger.error("heatmap_size must be a list of 2 integers")
                 return False
@@ -260,7 +207,6 @@ class ConfigManager:
                 logger.error("target_size must contain integers")
                 return False
 
-            # Validate GUI settings
             if not isinstance(config["gui"]["window_size"], list) or len(config["gui"]["window_size"]) != 2:
                 logger.error("window_size must be a list of 2 integers")
                 return False
@@ -280,18 +226,7 @@ class ConfigManager:
             logger.error(f"Configuration validation failed: {str(e)}")
             return False
 
-    def update_config(self, key: str, value: Any, config: Optional[Dict[str, Any]] = None) -> None:
-        """
-        Update a configuration value with validation.
-
-        Args:
-            key (str): Configuration key in format 'section.subkey'
-            value (Any): New value for the key
-            config (Dict[str, Any], optional): Configuration to update. Defaults to self.config.
-
-        Raises:
-            ValueError: If key format is invalid or value is of incorrect type.
-        """
+    def update_config(self, key: str, value: Any, config: Optional[Dict[str, Any]] = None):
         if config is None:
             config = self.config
 
@@ -306,13 +241,11 @@ class ConfigManager:
                 logger.error(f"Invalid configuration key: {key}")
                 raise ValueError(f"Invalid configuration key: {key}")
 
-            # Type checking
             expected_type = type(self.DEFAULT_CONFIG[section][subkey])
             if not isinstance(value, expected_type):
                 logger.error(f"Invalid type for {key}: expected {expected_type}, got {type(value)}")
                 raise ValueError(f"Invalid type for {key}")
 
-            # Range checking for specific keys
             if key == "model.dropout_rate" and not 0 <= value <= 1:
                 logger.error("dropout_rate must be between 0 and 1")
                 raise ValueError("dropout_rate must be between 0 and 1")
@@ -331,19 +264,8 @@ class ConfigManager:
             logger.error(f"Failed to update {key}: {str(e)}")
             raise
 
-    def save_config(self, config: Dict[str, Any], config_path: str) -> None:
-        """
-        Save configuration to a YAML file.
-
-        Args:
-            config (Dict[str, Any]): Configuration dictionary to save.
-            config_path (str): Path to save the configuration.
-
-        Raises:
-            IOError: If file operations fail.
-        """
+    def save_config(self, config: Dict[str, Any], config_path: str):
         try:
-            # Resolve path relative to project_root
             config_path = os.path.join(config["general"]["project_root"], config_path)
             os.makedirs(os.path.dirname(config_path), exist_ok=True)
             with open(config_path, 'w') as file:
@@ -353,16 +275,7 @@ class ConfigManager:
             logger.error(f"Failed to save configuration: {str(e)}")
             raise
 
-    def get_dataset_options(self, config: Optional[Dict[str, Any]] = None) -> List[str]:
-        """
-        Get available dataset options.
-
-        Args:
-            config (Dict[str, Any], optional): Configuration dictionary. Defaults to self.config.
-
-        Returns:
-            List[str]: List of available datasets.
-        """
+    def get_dataset_options(self, config: Optional[Dict[str, Any]] = None):
         if config is None:
             config = self.config
         try:
@@ -376,13 +289,7 @@ class ConfigManager:
             logger.error(f"Failed to get dataset options: {str(e)}")
             return []
 
-    def log_config(self, config: Optional[Dict[str, Any]] = None) -> None:
-        """
-        Log the current configuration.
-
-        Args:
-            config (Dict[str, Any], optional): Configuration dictionary. Defaults to self.config.
-        """
+    def log_config(self, config: Optional[Dict[str, Any]] = None):
         if config is None:
             config = self.config
         try:
@@ -394,13 +301,7 @@ class ConfigManager:
         except Exception as e:
             logger.error(f"Failed to log configuration: {str(e)}")
 
-    def reset_to_default(self, config: Optional[Dict[str, Any]] = None) -> None:
-        """
-        Reset configuration to default values.
-
-        Args:
-            config (Dict[str, Any], optional): Configuration dictionary. Defaults to self.config.
-        """
+    def reset_to_default(self, config: Optional[Dict[str, Any]] = None):
         if config is None:
             config = self.config
         try:
@@ -410,17 +311,7 @@ class ConfigManager:
         except Exception as e:
             logger.error(f"Failed to reset configuration: {str(e)}")
 
-    def export_config(self, config: Dict[str, Any], path: str) -> None:
-        """
-        Export configuration to a specified path.
-
-        Args:
-            config (Dict[str, Any]): Configuration dictionary to export.
-            path (str): Export path relative to project_root.
-
-        Raises:
-            IOError: If file operations fail.
-        """
+    def export_config(self, config: Dict[str, Any], path: str):
         try:
             export_path = os.path.join(config["general"]["project_root"], path)
             self.save_config(config, export_path)
@@ -429,16 +320,7 @@ class ConfigManager:
             logger.error(f"Failed to export configuration: {str(e)}")
             raise
 
-    def get_absolute_path(self, relative_path: str) -> str:
-        """
-        Convert relative path to absolute path using project_root.
-
-        Args:
-            relative_path (str): Relative path from config.
-
-        Returns:
-            str: Absolute path.
-        """
+    def get_absolute_path(self, relative_path: str):
         try:
             if not isinstance(relative_path, str):
                 logger.error(f"relative_path must be a string, got {type(relative_path)}")
@@ -451,21 +333,7 @@ class ConfigManager:
             logger.error(f"Failed to resolve path: {str(e)}")
             return relative_path
 
-    def get_config_value(self, key: str, config: Optional[Dict[str, Any]] = None, default: Optional[Any] = None) -> Any:
-        """
-        Get a configuration value by key with optional default value.
-
-        Args:
-            key (str): Configuration key in format 'section.subkey'
-            config (Dict[str, Any], optional): Configuration dictionary. Defaults to self.config.
-            default (Any, optional): Default value if key is not found.
-
-        Returns:
-            Any: Configuration value or default if not found.
-
-        Raises:
-            ValueError: If key format is invalid.
-        """
+    def get_config_value(self, key: str, config: Optional[Dict[str, Any]] = None, default: Optional[Any] = None):
         if config is None:
             config = self.config
         try:
@@ -483,7 +351,6 @@ class ConfigManager:
             logger.error(f"No default value provided for {key}")
             raise ValueError(f"Configuration key {key} not found and no default provided")
 
-# Example usage
 if __name__ == "__main__":
     try:
         config_manager = ConfigManager()

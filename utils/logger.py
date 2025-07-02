@@ -1,4 +1,3 @@
-# utils/logger.py
 import os
 import logging
 import logging.handlers
@@ -10,10 +9,8 @@ import colorama
 from colorama import Fore, Style
 from utils.config import ConfigManager
 
-# Initialize colorama for colored console output
 colorama.init()
 
-# Configure basic logging for the logger module
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -22,19 +19,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 class ColoredFormatter(logging.Formatter):
-    """Custom formatter to add colored output to log messages based on log level."""
-
     def __init__(self, colors: Dict[str, str], fmt: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"):
-        """
-        Initialize the ColoredFormatter with color mappings.
-
-        Args:
-            colors (Dict[str, str]): Dictionary mapping log levels to color names.
-            fmt (str): Format string for log messages.
-
-        Raises:
-            ValueError: If colors dictionary contains invalid log levels or colors.
-        """
         super().__init__(fmt)
         self.colors = colors
         self.color_map = {}
@@ -52,16 +37,7 @@ class ColoredFormatter(logging.Formatter):
             logger.error(f"Failed to initialize ColoredFormatter: {str(e)}")
             raise ValueError(f"ColoredFormatter initialization failed: {str(e)}")
 
-    def format(self, record: logging.LogRecord) -> str:
-        """
-        Format the log record with colored output.
-
-        Args:
-            record (logging.LogRecord): The log record to format.
-
-        Returns:
-            str: Formatted log message with color.
-        """
+    def format(self, record: logging.LogRecord):
         try:
             color = self.color_map.get(record.levelname, Fore.WHITE)
             message = super().format(record)
@@ -71,18 +47,7 @@ class ColoredFormatter(logging.Formatter):
             return super().format(record)
 
 class Logger:
-    """Manages logging functionality for the translaiter_trans_en-ru project with dynamic configuration."""
-
     def __init__(self, config: Optional[Dict[str, Any]] = None):
-        """
-        Initialize the Logger with configuration from ConfigManager.
-
-        Args:
-            config (Dict[str, Any], optional): Configuration dictionary. Defaults to None, using ConfigManager.
-
-        Raises:
-            ValueError: If logging configuration values are invalid.
-        """
         self.config_manager = ConfigManager()
         self.config = config if config is not None else self.config_manager.config
         self.logger = logging.getLogger("translaiter")
@@ -94,7 +59,6 @@ class Logger:
         self.file_handler = None
         self.stream_handler = None
 
-        # Fetch and validate logging configuration
         try:
             self.log_file = self.config_manager.get_config_value(
                 "logger.log_file", default="logs/translaiter.log"
@@ -138,7 +102,6 @@ class Logger:
             logger.error(f"Failed to initialize logger configuration: {str(e)}")
             raise ValueError(f"Logger configuration initialization failed: {str(e)}")
 
-        # Initialize logger
         try:
             self.initialize_logger()
             logger.info(f"Logger initialized with file: {self.log_file}")
@@ -147,20 +110,7 @@ class Logger:
             raise ValueError(f"Logger initialization failed: {str(e)}")
 
     def validate_config_value(self, key: str, value: Any, expected_type: type,
-                            non_empty: bool = False, positive: bool = False) -> None:
-        """
-        Validate a configuration value.
-
-        Args:
-            key (str): Configuration key for logging.
-            value (Any): Value to validate.
-            expected_type (type): Expected type of the value.
-            non_empty (bool): If True, ensures string or list values are non-empty.
-            positive (bool): If True, ensures numeric values are positive.
-
-        Raises:
-            ValueError: If the value does not meet validation criteria.
-        """
+                            non_empty: bool = False, positive: bool = False):
         try:
             if not isinstance(value, expected_type):
                 logger.error(f"Invalid type for {key}: expected {expected_type}, got {type(value)}")
@@ -176,13 +126,7 @@ class Logger:
             logger.error(f"Validation failed for {key}: {str(e)}")
             raise
 
-    def validate_log_config(self) -> None:
-        """
-        Validate all logging configuration parameters.
-
-        Raises:
-            ValueError: If any configuration parameter is invalid.
-        """
+    def validate_log_config(self):
         try:
             self.validate_config_value("log_file", self.log_file, str, non_empty=True)
             self.validate_config_value("max_log_size", self.max_log_size, int, positive=True)
@@ -205,23 +149,14 @@ class Logger:
             logger.error(f"Logging configuration validation failed: {str(e)}")
             raise ValueError(f"Logging configuration validation failed: {str(e)}")
 
-    def initialize_logger(self) -> None:
-        """
-        Initialize the logger with file and stream handlers, including rotation based on config.
-
-        Raises:
-            ValueError: If logger initialization fails, including file I/O errors.
-        """
+    def initialize_logger(self):
         try:
-            # Clear existing handlers
             self.logger.handlers.clear()
             logger.debug("Cleared existing logger handlers")
 
-            # Set log level from config
             self.logger.setLevel(getattr(logging, self.log_level, logging.INFO))
             logger.debug(f"Set logger level to: {self.log_level}")
 
-            # Create file handler with rotation
             log_file_path = self.config_manager.get_absolute_path(self.log_file)
             try:
                 os.makedirs(os.path.dirname(log_file_path), exist_ok=True)
@@ -241,7 +176,6 @@ class Logger:
             self.logger.addHandler(self.file_handler)
             logger.info(f"File handler configured with path: {log_file_path}, max size: {self.max_log_size}")
 
-            # Create stream handler with colored output
             self.stream_handler = logging.StreamHandler(sys.stdout)
             self.stream_handler.setLevel(logging.DEBUG)
             stream_formatter = ColoredFormatter(self.colors)
@@ -254,16 +188,7 @@ class Logger:
             logger.error(f"Failed to initialize logger: {str(e)}")
             raise ValueError(f"Logger initialization failed: {str(e)}")
 
-    def validate_logging_setup(self) -> bool:
-        """
-        Validate the logging setup (handlers and configuration).
-
-        Returns:
-            bool: True if logging setup is valid, False otherwise.
-
-        Raises:
-            ValueError: If validation fails.
-        """
+    def validate_logging_setup(self):
         try:
             if not self.file_handler or not self.stream_handler:
                 logger.error("File or stream handler not initialized")
@@ -280,16 +205,7 @@ class Logger:
             logger.error(f"Logging setup validation failed: {str(e)}")
             return False
 
-    def customize_formatter(self, fmt: Optional[str] = None) -> None:
-        """
-        Customize the log message format for all handlers.
-
-        Args:
-            fmt (str, optional): New format string. Defaults to current format if None.
-
-        Raises:
-            ValueError: If formatter customization fails.
-        """
+    def customize_formatter(self, fmt: Optional[str] = None):
         try:
             if fmt is None:
                 fmt = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -307,16 +223,7 @@ class Logger:
             logger.error(f"Failed to customize formatter: {str(e)}")
             raise ValueError(f"Formatter customization failed: {str(e)}")
 
-    def set_detail_level(self, level: str) -> None:
-        """
-        Set the logging detail level (e.g., full, minimal).
-
-        Args:
-            level (str): Detail level to set ("full" or "minimal").
-
-        Raises:
-            ValueError: If the detail level is invalid.
-        """
+    def set_detail_level(self, level: str):
         try:
             if not isinstance(level, str):
                 logger.error(f"Invalid detail level type: {type(level)}")
@@ -342,18 +249,7 @@ class Logger:
             logger.error(f"Failed to set detail level: {str(e)}")
             raise ValueError(f"Failed to set detail level: {str(e)}")
 
-    def log_message(self, level: str, message: str, extra: Optional[Dict[str, Any]] = None) -> None:
-        """
-        Log a message at the specified level with optional extra data.
-
-        Args:
-            level (str): Log level ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL").
-            message (str): Message to log.
-            extra (Dict[str, Any], optional): Additional data to include in the log.
-
-        Raises:
-            ValueError: If the log level is invalid.
-        """
+    def log_message(self, level: str, message: str, extra: Optional[Dict[str, Any]] = None):
         try:
             if not isinstance(level, str):
                 logger.error(f"Invalid log level type: {type(level)}")
@@ -373,13 +269,7 @@ class Logger:
             logger.error(f"Failed to log message: {str(e)}")
             raise ValueError(f"Failed to log message: {str(e)}")
 
-    def rotate_logs(self) -> None:
-        """
-        Manually trigger log file rotation.
-
-        Raises:
-            ValueError: If log rotation fails.
-        """
+    def rotate_logs(self):
         try:
             if self.file_handler:
                 self.file_handler.doRollover()
@@ -390,13 +280,7 @@ class Logger:
             logger.error(f"Failed to rotate logs: {str(e)}")
             raise ValueError(f"Log rotation failed: {str(e)}")
 
-    def clear_handlers(self) -> None:
-        """
-        Clear all handlers from the logger.
-
-        Raises:
-            ValueError: If clearing handlers fails.
-        """
+    def clear_handlers(self):
         try:
             self.logger.handlers.clear()
             self.file_handler = None
@@ -406,16 +290,7 @@ class Logger:
             logger.error(f"Failed to clear handlers: {str(e)}")
             raise ValueError(f"Failed to clear handlers: {str(e)}")
 
-    def get_log_file_size(self) -> int:
-        """
-        Get the current size of the log file.
-
-        Returns:
-            int: Size of the log file in bytes.
-
-        Raises:
-            ValueError: If retrieving log file size fails.
-        """
+    def get_log_file_size(self):
         try:
             log_file_path = self.config_manager.get_absolute_path(self.log_file)
             if os.path.exists(log_file_path):
@@ -428,16 +303,7 @@ class Logger:
             logger.error(f"Failed to get log file size: {str(e)}")
             raise ValueError(f"Failed to get log file size: {str(e)}")
 
-    def archive_logs(self, archive_path: str) -> None:
-        """
-        Archive the current log file to a specified path with a timestamp.
-
-        Args:
-            archive_path (str): Path to archive the log file.
-
-        Raises:
-            ValueError: If archiving logs fails.
-        """
+    def archive_logs(self, archive_path: str):
         try:
             if not isinstance(archive_path, str):
                 logger.error(f"Invalid archive_path type: {type(archive_path)}")
@@ -458,13 +324,7 @@ class Logger:
             logger.error(f"Failed to archive logs: {str(e)}")
             raise ValueError(f"Log archiving failed: {str(e)}")
 
-    def log_config(self) -> None:
-        """
-        Log the current logging configuration.
-
-        Raises:
-            ValueError: If logging configuration fails.
-        """
+    def log_config(self):
         try:
             logger.info("Current logging configuration:")
             logger.info(f"  Log File: {self.log_file}")
@@ -478,13 +338,7 @@ class Logger:
             logger.error(f"Failed to log configuration: {str(e)}")
             raise ValueError(f"Failed to log configuration: {str(e)}")
 
-    def shutdown_logger(self) -> None:
-        """
-        Gracefully shutdown the logger, closing all handlers.
-
-        Raises:
-            ValueError: If shutting down logger fails.
-        """
+    def shutdown_logger(self):
         try:
             self.clear_handlers()
             logging.shutdown()
@@ -493,17 +347,7 @@ class Logger:
             logger.error(f"Failed to shutdown logger: {str(e)}")
             raise ValueError(f"Failed to shutdown logger: {str(e)}")
 
-    def log_metrics(self, metrics: Dict[str, Any], level: str = "INFO") -> None:
-        """
-        Log a dictionary of metrics at the specified level.
-
-        Args:
-            metrics (Dict[str, Any]): Metrics to log.
-            level (str): Log level ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL").
-
-        Raises:
-            ValueError: If logging metrics fails.
-        """
+    def log_metrics(self, metrics: Dict[str, Any], level: str = "INFO"):
         try:
             if not isinstance(metrics, dict):
                 logger.error(f"Invalid metrics type: {type(metrics)}")
@@ -515,17 +359,7 @@ class Logger:
             logger.error(f"Failed to log metrics: {str(e)}")
             raise ValueError(f"Failed to log metrics: {str(e)}")
 
-    def log_exception(self, exc: Exception, message: str = "An exception occurred") -> None:
-        """
-        Log an exception with its traceback.
-
-        Args:
-            exc (Exception): The exception to log.
-            message (str): Additional message to include.
-
-        Raises:
-            ValueError: If logging exception fails.
-        """
+    def log_exception(self, exc: Exception, message: str = "An exception occurred"):
         try:
             if not isinstance(exc, Exception):
                 logger.error(f"Invalid exception type: {type(exc)}")
@@ -539,16 +373,7 @@ class Logger:
             logger.error(f"Failed to log exception: {str(e)}")
             raise ValueError(f"Failed to log exception: {str(e)}")
 
-    def check_log_file_health(self) -> bool:
-        """
-        Check if the log file is accessible and writable.
-
-        Returns:
-            bool: True if log file is healthy, False otherwise.
-
-        Raises:
-            ValueError: If checking log file health fails.
-        """
+    def check_log_file_health(self):
         try:
             log_file_path = self.config_manager.get_absolute_path(self.log_file)
             if not os.path.exists(os.path.dirname(log_file_path)):
@@ -556,20 +381,14 @@ class Logger:
                 return False
             if os.path.exists(log_file_path):
                 with open(log_file_path, 'a') as f:
-                    pass  # Test writability
+                    pass
             logger.debug("Log file health check passed")
             return True
         except (IOError, OSError) as e:
             logger.error(f"Log file health check failed: {str(e)}")
             return False
 
-    def flush_logs(self) -> None:
-        """
-        Flush all handlers to ensure logs are written to disk.
-
-        Raises:
-            ValueError: If flushing logs fails.
-        """
+    def flush_logs(self):
         try:
             for handler in self.logger.handlers:
                 handler.flush()
@@ -579,61 +398,48 @@ class Logger:
             raise ValueError(f"Failed to flush logs: {str(e)}")
 
 if __name__ == "__main__":
-    # Example usage for testing
     try:
         config_manager = ConfigManager()
         config = config_manager.config
         logger_instance = Logger(config)
 
-        # Log configuration
         logger_instance.log_config()
 
-        # Test different log levels
         logger_instance.log_message("DEBUG", "This is a debug message", extra={"context": "test"})
         logger_instance.log_message("INFO", "This is an info message", extra={"context": "test"})
         logger_instance.log_message("WARNING", "This is a warning message", extra={"context": "test"})
         logger_instance.log_message("ERROR", "This is an error message", extra={"context": "test"})
         logger_instance.log_message("CRITICAL", "This is a critical message", extra={"context": "test"})
 
-        # Test detail level switching
         logger_instance.set_detail_level("minimal")
         logger_instance.log_message("DEBUG", "This debug message should not appear in minimal mode")
         logger_instance.log_message("WARNING", "This warning message should appear")
         logger_instance.set_detail_level("full")
         logger_instance.log_message("DEBUG", "This debug message should appear in full mode")
 
-        # Test metrics logging
         sample_metrics = {"epoch": 1, "loss": 0.5, "learning_rate": 0.0001}
         logger_instance.log_metrics(sample_metrics, level="INFO")
 
-        # Test exception logging
         try:
             raise ValueError("Test exception for logging")
         except ValueError as e:
             logger_instance.log_exception(e, "Caught test exception")
 
-        # Test log rotation
         logger_instance.rotate_logs()
 
-        # Test log file health
         is_healthy = logger_instance.check_log_file_health()
         logger_instance.log_message("INFO", f"Log file health check: {'Healthy' if is_healthy else 'Unhealthy'}")
 
-        # Test archiving logs
         logger_instance.archive_logs("logs/archives/translaiter_archive.log")
 
-        # Test custom formatter
         logger_instance.customize_formatter("%(asctime)s - [%(levelname)s] - %(message)s")
         logger_instance.log_message("INFO", "Test message with custom formatter")
 
-        # Test logging setup validation
         is_valid = logger_instance.validate_logging_setup()
         logger_instance.log_message("INFO", f"Logging setup validation: {'Valid' if is_valid else 'Invalid'}")
 
-        # Test flushing logs
         logger_instance.flush_logs()
 
-        # Test shutting down logger
         logger_instance.shutdown_logger()
 
         logger.info("Logger test completed successfully")

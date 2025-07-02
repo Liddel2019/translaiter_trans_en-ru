@@ -34,11 +34,14 @@ tokenizer:
 
 # Model configuration for the transformer architecture
 model:
+  src_vocab_size: 32000
+  tgt_vocab_size: 32000
   num_layers: 6  # Number of transformer layers
   num_heads: 8   # Number of attention heads
   hidden_size: 512  # Size of hidden layers
   dropout_rate: 0.1  # Dropout rate for regularization
   checkpoint_path: "model/checkpoints"  # Path for model checkpoints, relative to project_root
+
 
 # Training configuration for model training
 training:

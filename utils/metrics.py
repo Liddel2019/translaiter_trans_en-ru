@@ -14,7 +14,6 @@ import torch.nn.functional as F
 import seaborn as sns
 import json
 
-# Configure basic logging for the metrics module
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -23,22 +22,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 class Metrics:
-    """Manages evaluation metrics for the translaiter_trans_en-ru project with dynamic configuration."""
-
     def __init__(self, config: Optional[Dict[str, Any]] = None):
-        """
-        Initialize the Metrics class with configuration from ConfigManager.
-
-        Args:
-            config (Dict[str, Any], optional): Configuration dictionary. Defaults to None, using ConfigManager.
-
-        Raises:
-            ValueError: If metric configuration values are invalid.
-
-        Example:
-            >>> config_manager = ConfigManager()
-            >>> metrics = Metrics(config_manager.config)
-        """
         self.config_manager = ConfigManager()
         self.config = config if config is not None else self.config_manager.config
         self.bleu_weights = None
@@ -78,23 +62,7 @@ class Metrics:
             raise ValueError(f"Metrics configuration initialization failed: {str(e)}")
 
     def validate_config_value(self, key: str, value: Any, expected_type: type,
-                            non_empty: bool = False) -> None:
-        """
-        Validate a configuration value.
-
-        Args:
-            key (str): Configuration key for metrics.
-            value (Any): Value to validate.
-            expected_type (type): Expected type of the value.
-            non_empty (bool): If True, ensures string or list values are non-empty.
-
-        Raises:
-            ValueError: If the value does not meet validation criteria.
-
-        Example:
-            >>> metrics = Metrics()
-            >>> metrics.validate_config_value("bleu_weights", [0.25, 0.25, 0.25, 0.25], list, non_empty=True)
-        """
+                            non_empty: bool = False):
         try:
             if not isinstance(value, expected_type):
                 logger.error(f"Invalid type for {key}: expected {expected_type}, got {type(value)}")
@@ -107,17 +75,7 @@ class Metrics:
             logger.error(f"Validation failed for {key}: {str(e)}")
             raise ValueError(f"Validation failed for {key}: {str(e)}")
 
-    def validate_metric_params(self) -> None:
-        """
-        Validate all metric configuration parameters.
-
-        Raises:
-            ValueError: If any configuration parameter is invalid.
-
-        Example:
-            >>> metrics = Metrics()
-            >>> metrics.validate_metric_params()
-        """
+    def validate_metric_params(self):
         try:
             if len(self.bleu_weights) != 4:
                 logger.error("bleu_weights must be a list of 4 values")
@@ -147,25 +105,7 @@ class Metrics:
             logger.error(f"Metric configuration validation failed: {str(e)}")
             raise ValueError(f"Metric configuration validation failed: {str(e)}")
 
-    def calculate_bleu(self, reference: List[str], hypothesis: List[str]) -> float:
-        """
-        Calculate BLEU score for a given reference and hypothesis using config weights.
-
-        Args:
-            reference (List[str]): List of reference translations.
-            hypothesis (List[str]): List of hypothesis translations.
-
-        Returns:
-            float: BLEU score.
-
-        Raises:
-            ValueError: If inputs are invalid or BLEU calculation fails.
-
-        Example:
-            >>> metrics = Metrics()
-            >>> score = metrics.calculate_bleu(reference=["This is a test"], hypothesis=["This is a test"])
-            >>> print(score)
-        """
+    def calculate_bleu(self, reference: List[str], hypothesis: List[str]):
         try:
             if not reference or not hypothesis:
                 logger.error("Reference or hypothesis list is empty")
@@ -193,27 +133,7 @@ class Metrics:
             logger.error(f"Failed to calculate BLEU score: {str(e)}")
             raise ValueError(f"BLEU score calculation failed: {str(e)}")
 
-    def calculate_loss(self, predictions: torch.Tensor, targets: torch.Tensor) -> float:
-        """
-        Calculate loss based on configured loss_type from config.
-
-        Args:
-            predictions (torch.Tensor): Model predictions.
-            targets (torch.Tensor): Ground truth targets.
-
-        Returns:
-            float: Computed loss value.
-
-        Raises:
-            ValueError: If loss calculation fails or loss_type is unsupported.
-
-        Example:
-            >>> metrics = Metrics()
-            >>> predictions = torch.tensor([[0.7, 0.2, 0.1], [0.1, 0.8, 0.1]])
-            >>> targets = torch.tensor([0, 1])
-            >>> loss = metrics.calculate_loss(predictions, targets)
-            >>> print(loss)
-        """
+    def calculate_loss(self, predictions: torch.Tensor, targets: torch.Tensor):
         try:
             if predictions.shape[0] != targets.shape[0]:
                 logger.error("Predictions and targets must have the same batch size")
@@ -238,22 +158,7 @@ class Metrics:
             logger.error(f"Failed to calculate loss: {str(e)}")
             raise ValueError(f"Loss calculation failed: {str(e)}")
 
-    def visualize_metrics(self, metrics: Dict[str, List[float]], title: str = "Metrics Plot") -> None:
-        """
-        Visualize metrics and save plots to configured plot_path.
-
-        Args:
-            metrics (Dict[str, List[float]]): Dictionary of metric names and their values over time.
-            title (str): Title of the plot.
-
-        Raises:
-            ValueError: If visualization fails or plot_path is invalid.
-
-        Example:
-            >>> metrics = Metrics()
-            >>> metrics_dict = {"bleu": [0.1, 0.2, 0.3], "loss": [1.0, 0.8, 0.6]}
-            >>> metrics.visualize_metrics(metrics_dict, "Training Metrics")
-        """
+    def visualize_metrics(self, metrics: Dict[str, List[float]], title: str = "Metrics Plot"):
         try:
             plot_path = self.config_manager.get_config_value(
                 "metrics.plot_path", self.config, default="logs/plots"
@@ -279,22 +184,7 @@ class Metrics:
             logger.error(f"Failed to visualize metrics: {str(e)}")
             raise ValueError(f"Metrics visualization failed: {str(e)}")
 
-    def export_metrics(self, metrics: Dict[str, Any], export_path: str) -> None:
-        """
-        Export metrics to a JSON file using configured paths.
-
-        Args:
-            metrics (Dict[str, Any]): Metrics to export.
-            export_path (str): Path to export the metrics file.
-
-        Raises:
-            ValueError: If exporting metrics fails.
-
-        Example:
-            >>> metrics = Metrics()
-            >>> metrics_dict = {"bleu": 0.4, "loss": 0.5}
-            >>> metrics.export_metrics(metrics_dict, "metrics.json")
-        """
+    def export_metrics(self, metrics: Dict[str, Any], export_path: str):
         try:
             export_path_absolute = self.config_manager.get_absolute_path(export_path)
             os.makedirs(os.path.dirname(export_path_absolute), exist_ok=True)
@@ -305,25 +195,7 @@ class Metrics:
             logger.error(f"Failed to export metrics: {str(e)}")
             raise ValueError(f"Metrics export failed: {str(e)}")
 
-    def validate_metrics(self, metrics: Dict[str, Any]) -> bool:
-        """
-        Validate metrics values against configured thresholds.
-
-        Args:
-            metrics (Dict[str, Any]): Metrics to validate.
-
-        Returns:
-            bool: True if metrics are valid, False otherwise.
-
-        Raises:
-            ValueError: If validation fails.
-
-        Example:
-            >>> metrics = Metrics()
-            >>> metrics_dict = {"bleu": 0.4, "loss": 0.5}
-            >>> is_valid = metrics.validate_metrics(metrics_dict)
-            >>> print(is_valid)
-        """
+    def validate_metrics(self, metrics: Dict[str, Any]):
         try:
             thresholds = self.config_manager.get_config_value(
                 "metrics.thresholds", self.config, default={"bleu": 0.3}
@@ -341,21 +213,7 @@ class Metrics:
             logger.error(f"Metrics validation failed: {str(e)}")
             return False
 
-    def log_metrics(self, metrics: Dict[str, Any]) -> None:
-        """
-        Log metrics values with formatted output.
-
-        Args:
-            metrics (Dict[str, Any]): Metrics to log.
-
-        Raises:
-            ValueError: If logging metrics fails.
-
-        Example:
-            >>> metrics = Metrics()
-            >>> metrics_dict = {"bleu": 0.4, "loss": 0.5}
-            >>> metrics.log_metrics(metrics_dict)
-        """
+    def log_metrics(self, metrics: Dict[str, Any]):
         try:
             metrics_str = ", ".join(f"{k}: {v:.4f}" for k, v in metrics.items())
             logger.info(f"Metrics: {metrics_str}")
@@ -363,27 +221,7 @@ class Metrics:
             logger.error(f"Failed to log metrics: {str(e)}")
             raise ValueError(f"Failed to log metrics: {str(e)}")
 
-    def compare_metrics(self, metrics1: Dict[str, Any], metrics2: Dict[str, Any]) -> Dict[str, float]:
-        """
-        Compare two sets of metrics and compute differences.
-
-        Args:
-            metrics1 (Dict[str, Any]): First set of metrics.
-            metrics2 (Dict[str, Any]): Second set of metrics.
-
-        Returns:
-            Dict[str, float]: Dictionary of metric differences.
-
-        Raises:
-            ValueError: If comparison fails.
-
-        Example:
-            >>> metrics = Metrics()
-            >>> metrics1 = {"bleu": 0.4, "loss": 0.5}
-            >>> metrics2 = {"bleu": 0.5, "loss": 0.4}
-            >>> diffs = metrics.compare_metrics(metrics1, metrics2)
-            >>> print(diffs)
-        """
+    def compare_metrics(self, metrics1: Dict[str, Any], metrics2: Dict[str, Any]):
         try:
             differences = {}
             common_keys = set(metrics1.keys()) & set(metrics2.keys())
@@ -397,25 +235,7 @@ class Metrics:
             logger.error(f"Failed to compare metrics: {str(e)}")
             raise ValueError(f"Metrics comparison failed: {str(e)}")
 
-    def aggregate_metrics(self, metrics_list: List[Dict[str, Any]]) -> Dict[str, float]:
-        """
-        Aggregate multiple sets of metrics by computing averages.
-
-        Args:
-            metrics_list (List[Dict[str, Any]]): List of metrics dictionaries.
-
-        Returns:
-            Dict[str, float]: Aggregated metrics (averages).
-
-        Raises:
-            ValueError: If aggregation fails.
-
-        Example:
-            >>> metrics = Metrics()
-            >>> metrics_list = [{"bleu": 0.4, "loss": 0.5}, {"bleu": 0.5, "loss": 0.4}]
-            >>> agg_metrics = metrics.aggregate_metrics(metrics_list)
-            >>> print(agg_metrics)
-        """
+    def aggregate_metrics(self, metrics_list: List[Dict[str, Any]]):
         try:
             if not metrics_list:
                 logger.error("Metrics list is empty")
@@ -433,22 +253,7 @@ class Metrics:
             logger.error(f"Failed to aggregate metrics: {str(e)}")
             raise ValueError(f"Metrics aggregation failed: {str(e)}")
 
-    def plot_heatmap(self, data: np.ndarray, title: str = "Metric Heatmap") -> None:
-        """
-        Plot a heatmap for a given data array and save to configured plot_path.
-
-        Args:
-            data (np.ndarray): Data array for the heatmap.
-            title (str): Title of the heatmap.
-
-        Raises:
-            ValueError: If heatmap plotting fails.
-
-        Example:
-            >>> metrics = Metrics()
-            >>> data = np.random.rand(10, 10)
-            >>> metrics.plot_heatmap(data, "Sample Heatmap")
-        """
+    def plot_heatmap(self, data: np.ndarray, title: str = "Metric Heatmap"):
         try:
             plot_path = self.config_manager.get_config_value(
                 "metrics.plot_path", self.config, default="logs/plots"
@@ -469,25 +274,7 @@ class Metrics:
             logger.error(f"Failed to plot heatmap: {str(e)}")
             raise ValueError(f"Heatmap plotting failed: {str(e)}")
 
-    def check_thresholds(self, metrics: Dict[str, Any]) -> Dict[str, bool]:
-        """
-        Check if metrics meet configured thresholds.
-
-        Args:
-            metrics (Dict[str, Any]): Metrics to check.
-
-        Returns:
-            Dict[str, bool]: Dictionary indicating if each metric meets its threshold.
-
-        Raises:
-            ValueError: If threshold checking fails.
-
-        Example:
-            >>> metrics = Metrics()
-            >>> metrics_dict = {"bleu": 0.4}
-            >>> result = metrics.check_thresholds(metrics_dict)
-            >>> print(result)
-        """
+    def check_thresholds(self, metrics: Dict[str, Any]):
         try:
             thresholds = self.config_manager.get_config_value(
                 "metrics.thresholds", self.config, default={"bleu": 0.3}
@@ -504,17 +291,7 @@ class Metrics:
             logger.error(f"Failed to check thresholds: {str(e)}")
             raise ValueError(f"Threshold checking failed: {str(e)}")
 
-    def log_config(self) -> None:
-        """
-        Log the current metrics configuration.
-
-        Raises:
-            ValueError: If logging configuration fails.
-
-        Example:
-            >>> metrics = Metrics()
-            >>> metrics.log_config()
-        """
+    def log_config(self):
         try:
             logger.info("Current metrics configuration:")
             logger.info(f"  BLEU Weights: {self.bleu_weights}")
@@ -525,17 +302,7 @@ class Metrics:
             logger.error(f"Failed to log configuration: {str(e)}")
             raise ValueError(f"Failed to log configuration: {str(e)}")
 
-    def reset_metrics(self) -> None:
-        """
-        Reset metrics configuration to defaults from ConfigManager.
-
-        Raises:
-            ValueError: If resetting configuration fails.
-
-        Example:
-            >>> metrics = Metrics()
-            >>> metrics.reset_metrics()
-        """
+    def reset_metrics(self):
         try:
             self.config_manager.reset_to_default(self.config)
             self.bleu_weights = self.config_manager.get_config_value(
@@ -559,22 +326,7 @@ class Metrics:
             logger.error(f"Failed to reset metrics configuration: {str(e)}")
             raise ValueError(f"Metrics configuration reset failed: {str(e)}")
 
-    def plot_metrics(self, metrics: Dict[str, List[float]], title: str = "Metrics Plot") -> None:
-        """
-        Plot multiple metrics in subplots and save to configured plot_path.
-
-        Args:
-            metrics (Dict[str, List[float]]): Dictionary of metric names and their values over time.
-            title (str): Title of the plot.
-
-        Raises:
-            ValueError: If plotting fails or plot_path is invalid.
-
-        Example:
-            >>> metrics = Metrics()
-            >>> metrics_dict = {"bleu": [0.1, 0.2, 0.3], "loss": [1.0, 0.8, 0.6]}
-            >>> metrics.plot_metrics(metrics_dict, "Multi-Metrics Plot")
-        """
+    def plot_metrics(self, metrics: Dict[str, List[float]], title: str = "Metrics Plot"):
         try:
             plot_path = self.config_manager.get_config_value(
                 "metrics.plot_path", self.config, default="logs/plots"
@@ -605,17 +357,7 @@ class Metrics:
             logger.error(f"Failed to plot multi-metrics: {str(e)}")
             raise ValueError(f"Multi-metrics plotting failed: {str(e)}")
 
-    def validate_imports(self) -> bool:
-        """
-        Validate all required imports for the Metrics module.
-
-        Returns:
-            bool: True if all imports are successful, False otherwise.
-
-        Example:
-            >>> metrics = Metrics()
-            >>> metrics.validate_imports()
-        """
+    def validate_imports(self):
         try:
             import numpy
             import torch
